@@ -119,11 +119,11 @@ function StatsBadge({
   value: string | number;
 }) {
   return (
-    <div className="rounded-2xl border border-white/60 bg-white/70 px-4 py-3 shadow-sm backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/70">
-      <p className="text-xs uppercase tracking-[0.16em] text-slate-500 dark:text-slate-400">
+    <div className="rounded-xl border border-(--card-border) bg-background px-4 py-3">
+      <p className="text-xs uppercase tracking-[0.16em] text-(--muted)">
         {label}
       </p>
-      <p className="mt-1 text-xl font-semibold text-slate-900 dark:text-slate-100">
+      <p className="mt-1 text-2xl font-display font-semibold text-foreground">
         {value}
       </p>
     </div>
@@ -143,16 +143,63 @@ function TabButton({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-2xl px-4 py-3 text-sm font-semibold transition ${
+      className={`rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
         isActive
-          ? "bg-slate-900 text-white shadow-lg shadow-slate-900/10 dark:bg-blue-500 dark:text-slate-950 dark:shadow-blue-500/20"
-          : "border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+          ? "bg-(--accent) text-background"
+          : "text-(--muted) hover:text-foreground"
       }`}
     >
       {children}
     </button>
   );
 }
+
+function SunIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <circle cx="12" cy="12" r="4" />
+      <line x1="12" y1="2" x2="12" y2="4" />
+      <line x1="12" y1="20" x2="12" y2="22" />
+      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+      <line x1="2" y1="12" x2="4" y2="12" />
+      <line x1="20" y1="12" x2="22" y2="12" />
+      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+    </svg>
+  );
+}
+
+function MoonIcon() {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="15"
+      height="15"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+    </svg>
+  );
+}
+
+const cardClass =
+  "rounded-2xl border border-(--card-border) bg-(--card)";
 
 export function StressTrainerApp() {
   const [userIdInput, setUserIdInput] = useState("");
@@ -510,57 +557,53 @@ export function StressTrainerApp() {
     });
   }
 
+  const inputClass =
+    "w-full rounded-xl border border-(--card-border) bg-background px-4 py-3 text-foreground outline-none transition focus:border-[var(--foreground)] placeholder:text-(--muted)";
+
+  const btnPrimary =
+    "rounded-xl bg-(--accent) px-5 py-2.5 text-sm font-medium text-background transition hover:opacity-80 disabled:opacity-40";
+
+  const btnSecondary =
+    "rounded-xl border border-(--card-border) bg-(--card) px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-[var(--foreground)]";
+
   if (!userId) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[radial-gradient(circle_at_top,#dbeafe_0%,#eef2ff_45%,#f8fafc_100%)] px-4 py-10 dark:bg-[radial-gradient(circle_at_top,#0f172a_0%,#111827_45%,#020617_100%)]">
-        <div className="w-full max-w-md rounded-4xl border border-white/70 bg-white/85 p-8 shadow-2xl shadow-slate-200/80 backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/85 dark:shadow-slate-950/60">
+      <div className="flex min-h-screen items-center justify-center bg-background px-4">
+        <div className={`${cardClass} w-full max-w-sm p-8`}>
           <div className="flex items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium uppercase tracking-[0.2em] text-blue-600 dark:text-blue-400">
-                Learning App
-              </p>
-              <h1 className="mt-3 text-3xl font-semibold text-slate-900 dark:text-slate-100">
-                Наголоси
-              </h1>
-            </div>
-
+            <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground">
+              Наголоси
+            </h1>
             <button
               type="button"
-              onClick={() => setIsDarkMode((currentValue) => !currentValue)}
-              className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+              onClick={() => setIsDarkMode((v) => !v)}
+              className={`${btnSecondary} px-2.5 py-2.5`}
+              aria-label={isDarkMode ? "Світла тема" : "Темна тема"}
             >
-              {isDarkMode ? "Світла тема" : "Темна тема"}
+              {isDarkMode ? <SunIcon /> : <MoonIcon />}
             </button>
           </div>
 
-          <p className="mt-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
-            Введіть свій ідентифікатор. Він буде збережений у локальному сховищі
-            браузера та використаний як простий логін.
-          </p>
-
-          <form className="mt-8 space-y-4" onSubmit={handleSaveUserId}>
+          <form className="mt-8 space-y-3" onSubmit={handleSaveUserId}>
             <label className="block">
-              <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
+              <span className="mb-2 block text-xs uppercase tracking-widest text-(--muted)">
                 Ваш ID
               </span>
               <input
                 value={userIdInput}
                 onChange={(event) => setUserIdInput(event.target.value)}
-                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none ring-0 transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-blue-500"
+                className={inputClass}
                 placeholder="наприклад: yaroslav"
               />
             </label>
 
             {error ? (
-              <p className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/80 dark:bg-rose-950/60 dark:text-rose-200">
+              <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
                 {error}
               </p>
             ) : null}
 
-            <button
-              type="submit"
-              className="w-full rounded-2xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-blue-500 dark:text-slate-950 dark:hover:bg-blue-400"
-            >
+            <button type="submit" className={`${btnPrimary} w-full`}>
               Увійти
             </button>
           </form>
@@ -570,117 +613,88 @@ export function StressTrainerApp() {
   }
 
   return (
-    <div className="min-h-screen bg-[radial-gradient(circle_at_top,#dbeafe_0%,#eff6ff_30%,#f8fafc_100%)] pb-16 dark:bg-[radial-gradient(circle_at_top,#0f172a_0%,#111827_35%,#020617_100%)]">
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <section className="rounded-4xl border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-200/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-slate-950/50">
-          <div className="flex flex-col gap-6 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-600 dark:text-blue-400">
-                Режим навчання
-              </p>
-              <h1 className="mt-2 text-3xl font-semibold text-slate-900 dark:text-slate-100 sm:text-4xl">
-                Наголоси
-              </h1>
-              <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 dark:text-slate-300 sm:text-base">
-                Додавайте слова з наголошеними голосними великими літерами,
-                тренуйтеся у випадковому або навчальному режимі та зберігайте всі
-                результати у Postgres через Neon.
-              </p>
-            </div>
+    <div className="min-h-screen bg-background pb-20">
+      <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-8 sm:px-6">
 
-            <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center">
-              <div className="rounded-2xl bg-slate-900 px-4 py-3 text-sm font-medium text-white dark:bg-slate-950 dark:text-slate-100">
-                ID: {userId}
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsDarkMode((currentValue) => !currentValue)}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                {isDarkMode ? "Світла тема" : "Темна тема"}
-              </button>
-              <button
-                type="button"
-                onClick={handleChangeUser}
-                className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
-              >
-                Змінити ID
-              </button>
-            </div>
+        {/* Header */}
+        <div className="flex items-center justify-between">
+          <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            Наголоси
+          </h1>
+
+          <div className="flex items-center gap-2">
+            <span className="rounded-lg border border-(--card-border) bg-(--card) px-3 py-1.5 text-xs font-medium text-(--muted)">
+              {userId}
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsDarkMode((v) => !v)}
+              className={`${btnSecondary} px-2.5 py-2.5`}
+              aria-label={isDarkMode ? "Світла тема" : "Темна тема"}
+            >
+              {isDarkMode ? <SunIcon /> : <MoonIcon />}
+            </button>
+            <button type="button" onClick={handleChangeUser} className={btnSecondary}>
+              Змінити ID
+            </button>
           </div>
+        </div>
 
-          <div className="mt-6 grid gap-3 sm:grid-cols-3">
-            <StatsBadge label="Слів у базі" value={words.length} />
-            <StatsBadge label="Ніколи не тестувались" value={totalNeverTested} />
-            <StatsBadge label="Усього відповідей" value={totalAttempts} />
-          </div>
-        </section>
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3">
+          <StatsBadge label="Слова" value={words.length} />
+          <StatsBadge label="Нові" value={totalNeverTested} />
+          <StatsBadge label="Відповіді" value={totalAttempts} />
+        </div>
 
+        {/* Flash messages */}
         {message ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/70 dark:bg-emerald-950/50 dark:text-emerald-200">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
             {message}
           </div>
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/70 dark:bg-rose-950/50 dark:text-rose-200">
+          <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
             {error}
           </div>
         ) : null}
 
-        <section className="rounded-4xl border border-white/70 bg-white/80 p-3 shadow-xl shadow-slate-200/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-slate-950/50">
-          <div className="flex flex-wrap gap-3">
-            <TabButton
-              isActive={activeTab === "test"}
-              onClick={() => setActiveTab("test")}
-            >
-              Тестування
-            </TabButton>
-            <TabButton
-              isActive={activeTab === "manage"}
-              onClick={() => setActiveTab("manage")}
-            >
-              Керування словами
-            </TabButton>
-          </div>
-        </section>
+        {/* Tabs */}
+        <div className="flex gap-1 border-b border-(--card-border)">
+          <TabButton isActive={activeTab === "test"} onClick={() => setActiveTab("test")}>
+            Тестування
+          </TabButton>
+          <TabButton isActive={activeTab === "manage"} onClick={() => setActiveTab("manage")}>
+            Керування словами
+          </TabButton>
+        </div>
 
         {activeTab === "test" ? (
-          <section className="space-y-6">
-            <div className="rounded-4xl border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-200/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-slate-950/50">
-              <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                Тестування
-              </h2>
-              <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
-                У випадковому режимі слова перемішуються. У навчальному режимі
-                спочатку йдуть нові слова, потім найдавніші помилки, а тоді
-                найдавніші правильні відповіді.
-              </p>
-
-              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
-                <button
-                  type="button"
-                  onClick={() => startTest("random")}
-                  className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 dark:bg-slate-950 dark:hover:bg-slate-800"
-                >
-                  Випадковий режим
-                </button>
-                <button
-                  type="button"
-                  onClick={() => startTest("learning")}
-                  className="rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 dark:bg-blue-500 dark:text-slate-950 dark:hover:bg-blue-400"
-                >
-                  Навчальний режим
-                </button>
-              </div>
+          <section className="space-y-5">
+            {/* Start buttons */}
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => startTest("random")}
+                className={btnPrimary}
+              >
+                Випадковий режим
+              </button>
+              <button
+                type="button"
+                onClick={() => startTest("learning")}
+                className="rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500 dark:bg-blue-500 dark:hover:bg-blue-400"
+              >
+                Навчальний режим
+              </button>
             </div>
 
+            {/* Active test card */}
             {activeTest && currentWord ? (
               <div
-                className={`rounded-4xl border p-6 shadow-xl backdrop-blur transition ${
-                  activeTest.answered
-                    ? "cursor-pointer border-blue-200 bg-blue-50/90 shadow-blue-100/70 dark:border-blue-700/60 dark:bg-blue-950/40 dark:shadow-blue-950/40"
-                    : "border-white/70 bg-white/80 shadow-slate-200/70 dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-slate-950/50"
+                className={`${cardClass} p-6 transition ${
+                  activeTest.answered ? "cursor-pointer" : ""
                 }`}
                 onClick={handleAdvance}
                 role={activeTest.answered ? "button" : undefined}
@@ -695,104 +709,87 @@ export function StressTrainerApp() {
                   }
                 }}
               >
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.14em] text-blue-600 dark:text-blue-400">
-                      {activeTest.mode === "random"
-                        ? "Випадковий режим"
-                        : "Навчальний режим"}
-                    </p>
-                    <h3 className="mt-2 text-xl font-semibold text-slate-900 dark:text-slate-100">
-                      Слово {activeTest.index + 1} з {activeTest.queue.length}
-                    </h3>
-                  </div>
-
+                <div className="flex items-center justify-between">
+                  <p className="text-xs uppercase tracking-widest text-(--muted)">
+                    {activeTest.mode === "random" ? "Випадковий" : "Навчальний"}
+                    {" · "}
+                    {activeTest.index + 1} / {activeTest.queue.length}
+                  </p>
                   <button
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
                       finishTest(activeTest.sessionAttempts);
                     }}
-                    className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                    className={btnSecondary}
                   >
-                    Завершити тест
+                    Завершити
                   </button>
                 </div>
 
-                <p className="mt-5 text-sm text-slate-600 dark:text-slate-300">
-                  Натисніть на голосну в першому слові. Додатковий текст показано
-                  лише як підказку і він не натискається.
-                </p>
+                {/* Word display */}
+                <div className="mt-10 flex justify-center">
+                  <div className="flex flex-wrap items-baseline justify-center gap-1 text-4xl font-semibold sm:text-5xl">
+                    {[...currentWord.displayWord].map((character, index) => {
+                      const isVowel = isUkrainianVowel(character);
+                      const isCorrect = currentWord.stressPositions.includes(index);
+                      const isSelected = activeTest.selectedVowelIndex === index;
 
-                <div className="mt-8 flex justify-center">
-                  <div className="rounded-4xl bg-white px-4 py-5 shadow-inner shadow-slate-100 dark:bg-slate-950 dark:shadow-slate-950/60">
-                    <div className="flex flex-wrap items-center justify-center gap-2 text-3xl font-semibold sm:text-4xl">
-                      {[...currentWord.displayWord].map((character, index) => {
-                        const isVowel = isUkrainianVowel(character);
-                        const isCorrect = currentWord.stressPositions.includes(index);
-                        const isSelected = activeTest.selectedVowelIndex === index;
+                      let className =
+                        "rounded-lg px-1.5 py-1 transition font-display tracking-tight";
 
-                        let className =
-                          "min-w-10 rounded-2xl px-2 py-3 transition sm:min-w-12 sm:px-3";
+                      if (!isVowel) {
+                        className += " text-foreground cursor-default";
+                      } else if (!activeTest.answered) {
+                        className +=
+                          " cursor-pointer border border-(--card-border) text-foreground hover:border-[var(--foreground)] hover:bg-background";
+                      } else if (isCorrect) {
+                        className += " bg-emerald-500 text-white border border-emerald-500";
+                      } else if (isSelected) {
+                        className += " bg-rose-500 text-white border border-rose-500";
+                      } else {
+                        className +=
+                          " border border-(--card-border) text-(--muted)";
+                      }
 
-                        if (!isVowel) {
-                          className += " text-slate-900 dark:text-slate-100";
-                        } else if (!activeTest.answered) {
-                          className +=
-                            " cursor-pointer bg-slate-100 text-slate-900 hover:bg-blue-100 dark:bg-slate-800 dark:text-slate-100 dark:hover:bg-slate-700";
-                        } else if (isCorrect) {
-                          className += " bg-emerald-500 text-white";
-                        } else if (isSelected) {
-                          className += " bg-rose-500 text-white";
-                        } else {
-                          className +=
-                            " bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300";
-                        }
+                      return (
+                        <button
+                          key={`${character}-${index}`}
+                          type="button"
+                          disabled={!isVowel || activeTest.answered || isSubmittingAttempt}
+                          className={className}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            if (!isVowel) return;
+                            void handleAnswer(currentWord, index);
+                          }}
+                        >
+                          {character}
+                        </button>
+                      );
+                    })}
 
-                        return (
-                          <button
-                            key={`${character}-${index}`}
-                            type="button"
-                            disabled={!isVowel || activeTest.answered || isSubmittingAttempt}
-                            className={className}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              if (!isVowel) {
-                                return;
-                              }
-                              void handleAnswer(currentWord, index);
-                            }}
-                          >
-                            {character}
-                          </button>
-                        );
-                      })}
-
-                      {currentWordTrailingText ? (
-                        <span className="ml-2 text-lg font-medium text-slate-500 dark:text-slate-400 sm:text-xl">
-                          {currentWordTrailingText}
-                        </span>
-                      ) : null}
-                    </div>
+                    {currentWordTrailingText ? (
+                      <span className="ml-2 text-xl font-normal text-(--muted)">
+                        {currentWordTrailingText}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
 
+                {/* Feedback */}
                 {activeTest.answered ? (
-                  <div className="mt-6 rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-700 dark:bg-slate-950">
+                  <div className="mt-8 border-t border-(--card-border) pt-5">
                     <p
-                      className={`text-base font-semibold ${
+                      className={`text-sm font-medium ${
                         activeTest.selectedVowelIndex !== null &&
-                        currentWord.stressPositions.includes(
-                          activeTest.selectedVowelIndex,
-                        )
-                          ? "text-emerald-700 dark:text-emerald-400"
-                          : "text-rose-700 dark:text-rose-400"
+                        currentWord.stressPositions.includes(activeTest.selectedVowelIndex)
+                          ? "text-emerald-600 dark:text-emerald-400"
+                          : "text-rose-600 dark:text-rose-400"
                       }`}
                     >
                       {activeTest.selectedVowelIndex !== null &&
-                      currentWord.stressPositions.includes(
-                        activeTest.selectedVowelIndex,
-                      )
+                      currentWord.stressPositions.includes(activeTest.selectedVowelIndex)
                         ? "Правильно!"
                         : `Неправильно. Правильний варіант: ${formatSourceTextWithStress(
                             currentWord.sourceText,
@@ -800,104 +797,88 @@ export function StressTrainerApp() {
                             currentWord.stressPositions,
                           )}`}
                     </p>
-                    <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
-                      Натисніть на картку, Enter або пробіл, щоб перейти до
-                      наступного слова.
-                    </p>
                   </div>
                 ) : isSubmittingAttempt ? (
-                  <p className="mt-6 text-sm text-slate-500 dark:text-slate-400">
-                    Зберігаємо результат...
+                  <p className="mt-8 text-xs text-(--muted)">
+                    Зберігаємо...
                   </p>
                 ) : null}
               </div>
             ) : null}
 
+            {/* Session results */}
             {!activeTest && sessionSummary.total > 0 ? (
-              <div className="rounded-4xl border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-200/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-slate-950/50">
-                <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                  Результати останнього тесту
+              <div className={`${cardClass} p-6`}>
+                <h2 className="font-display text-2xl font-semibold text-foreground">
+                  Результати
                 </h2>
-                <div className="mt-5 grid gap-3 sm:grid-cols-3">
+                <div className="mt-4 grid grid-cols-3 gap-3">
                   <StatsBadge label="Усього" value={sessionSummary.total} />
                   <StatsBadge label="Правильно" value={sessionSummary.correct} />
                   <StatsBadge label="Помилок" value={sessionSummary.incorrect} />
                 </div>
 
-                <div className="mt-6 space-y-3">
+                <div className="mt-5 space-y-2">
                   {sessionSummary.attempts.map((attempt, index) => (
                     <div
                       key={`${attempt.wordId}-${index}`}
-                      className="rounded-2xl border border-slate-200 bg-white px-4 py-4 dark:border-slate-700 dark:bg-slate-950"
+                      className="flex items-center justify-between gap-4 rounded-xl border border-(--card-border) bg-background px-4 py-2.5"
                     >
-                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                        <p className="text-base font-semibold text-slate-900 dark:text-slate-100">
-                          {formatSourceTextWithStress(
-                            attempt.sourceText,
-                            attempt.word,
-                            attempt.correctPositions,
-                          )}
-                        </p>
-                        <span
-                          className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                            attempt.isCorrect
-                              ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
-                              : "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300"
-                          }`}
-                        >
-                          {attempt.isCorrect ? "Правильно" : "Помилка"}
-                        </span>
-                      </div>
+                      <p className="font-display text-lg font-medium text-foreground">
+                        {formatSourceTextWithStress(
+                          attempt.sourceText,
+                          attempt.word,
+                          attempt.correctPositions,
+                        )}
+                      </p>
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          attempt.isCorrect
+                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                            : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400"
+                        }`}
+                      >
+                        {attempt.isCorrect ? "Правильно" : "Помилка"}
+                      </span>
                     </div>
                   ))}
                 </div>
               </div>
-            ) : (
-              <div className="rounded-4xl border border-dashed border-slate-200 bg-white/60 p-6 text-sm leading-6 text-slate-500 dark:border-slate-700 dark:bg-slate-900/50 dark:text-slate-400">
-                Після завершення тесту тут з&apos;являться результати поточної
-                сесії.
-              </div>
-            )}
+            ) : null}
           </section>
         ) : (
-          <section className="space-y-6">
-            <div className="rounded-4xl border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-200/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-slate-950/50">
-              <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                    Керування словами
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    Приклад запису: <span className="font-semibold">завдАння</span>{" "}
-                    або <span className="font-semibold">хАос (у міфології: стихія)</span>.
-                  </p>
-                </div>
-              </div>
+          <section className="space-y-5">
+            {/* Word form */}
+            <div className={`${cardClass} p-6`}>
+              <p className="text-xs text-(--muted)">
+                Приклад:{" "}
+                <span className="font-medium text-foreground">завдАння</span>{" "}
+                або{" "}
+                <span className="font-medium text-foreground">
+                  хАос (у міфології: стихія)
+                </span>
+              </p>
 
               <form className="mt-5 space-y-4" onSubmit={handleWordSubmit}>
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <span className="mb-2 block text-xs uppercase tracking-widest text-(--muted)">
                     {editingWordId ? "Редагувати слово" : "Нове слово"}
                   </span>
                   <input
                     value={wordInput}
                     onChange={(event) => setWordInput(event.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={inputClass}
                     placeholder="вИпадок"
                   />
                 </label>
 
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="submit"
-                    disabled={isSavingWord}
-                    className="rounded-2xl bg-slate-900 px-5 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-slate-950 dark:hover:bg-slate-800"
-                  >
+                <div className="flex gap-3">
+                  <button type="submit" disabled={isSavingWord} className={btnPrimary}>
                     {isSavingWord
                       ? "Зберігаємо..."
                       : editingWordId
-                        ? "Оновити слово"
-                        : "Додати слово"}
+                        ? "Оновити"
+                        : "Додати"}
                   </button>
 
                   {editingWordId ? (
@@ -907,27 +888,27 @@ export function StressTrainerApp() {
                         setEditingWordId(null);
                         setWordInput("");
                       }}
-                      className="rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                      className={btnSecondary}
                     >
-                      Скасувати редагування
+                      Скасувати
                     </button>
                   ) : null}
                 </div>
               </form>
 
-              <div className="mt-8">
+              <div className="mt-8 border-t border-(--card-border) pt-6">
                 <label className="block">
-                  <span className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                  <span className="mb-2 block text-xs uppercase tracking-widest text-(--muted)">
                     Масовий імпорт
                   </span>
                   <textarea
                     value={bulkInput}
                     onChange={(event) => setBulkInput(event.target.value)}
-                    className="min-h-40 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-400 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:border-blue-500"
+                    className={`${inputClass} min-h-36`}
                     placeholder={"вИпадок\nзАвжди\nводопровІд\nперепИс"}
                   />
                 </label>
-                <p className="mt-2 text-xs leading-5 text-slate-500 dark:text-slate-400">
+                <p className="mt-2 text-xs leading-5 text-(--muted)">
                   По одному слову в рядок або через кому. Якщо слово має два
                   наголоси, позначте обидві голосні великими літерами. Усе після
                   першого слова можна використовувати як примітку.
@@ -936,112 +917,91 @@ export function StressTrainerApp() {
                   type="button"
                   onClick={handleImportWords}
                   disabled={isImporting}
-                  className="mt-4 rounded-2xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-500 disabled:cursor-not-allowed disabled:opacity-60 dark:bg-blue-500 dark:text-slate-950 dark:hover:bg-blue-400"
+                  className="mt-4 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-blue-500 disabled:opacity-40 dark:bg-blue-500 dark:hover:bg-blue-400"
                 >
                   {isImporting ? "Імпортуємо..." : "Імпортувати слова"}
                 </button>
               </div>
             </div>
 
-            <div className="rounded-4xl border border-white/70 bg-white/80 p-6 shadow-xl shadow-slate-200/70 backdrop-blur dark:border-slate-700/70 dark:bg-slate-900/80 dark:shadow-slate-950/50">
+            {/* Word list */}
+            <div className={`${cardClass} p-6`}>
               <div className="flex items-center justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-100">
-                    Список слів
-                  </h2>
-                  <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">
-                    Список прихований за замовчуванням, щоб не заважати на мобільному.
-                  </p>
-                </div>
+                <h2 className="font-display text-2xl font-semibold text-foreground">
+                  Список слів
+                </h2>
                 <button
                   type="button"
-                  onClick={() => setIsWordListExpanded((currentValue) => !currentValue)}
-                  className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
+                  onClick={() => setIsWordListExpanded((v) => !v)}
+                  className={btnSecondary}
                 >
-                  {isWordListExpanded ? "Сховати список" : `Показати список (${words.length})`}
+                  {isWordListExpanded ? "Сховати" : `Показати (${words.length})`}
                 </button>
               </div>
 
-              <div className="mt-5">
-                {isLoading ? (
-                  <p className="text-sm text-slate-500 dark:text-slate-400">
-                    Завантаження...
-                  </p>
-                ) : null}
-
-                {!isWordListExpanded ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-400">
-                    Список слів приховано. Відкрийте його лише коли потрібно
-                    редагувати або переглядати записи.
-                  </div>
-                ) : words.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-4 py-6 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-950/60 dark:text-slate-400">
-                    Поки що немає слів. Додайте перше слово вручну або через
-                    імпорт.
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {words.map((word) => (
-                      <div
-                        key={word.id}
-                        className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-sm dark:border-slate-700 dark:bg-slate-950"
-                      >
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                          <div>
-                            <p className="text-lg font-semibold text-slate-900 dark:text-slate-100">
-                              {formatSourceTextWithStress(
-                                word.sourceText,
-                                word.displayWord,
-                                word.stressPositions,
-                              )}
-                            </p>
-                            <div className="mt-3 flex flex-wrap gap-2 text-xs text-slate-600 dark:text-slate-300">
-                              <span className="rounded-full bg-slate-100 px-3 py-1 dark:bg-slate-800">
-                                Спроб: {word.progress.attemptsCount}
-                              </span>
-                              <span className="rounded-full bg-emerald-50 px-3 py-1 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">
-                                Правильно: {word.progress.correctCount}
-                              </span>
-                              <span className="rounded-full bg-rose-50 px-3 py-1 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">
-                                Помилок: {word.progress.incorrectCount}
-                              </span>
-                              <span className="rounded-full bg-blue-50 px-3 py-1 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300">
-                                Остання відповідь:{" "}
-                                {word.progress.lastResult === null
-                                  ? "не було"
-                                  : word.progress.lastResult
-                                    ? "правильна"
-                                    : "неправильна"}
-                              </span>
+              {isWordListExpanded ? (
+                <div className="mt-5">
+                  {isLoading ? (
+                    <p className="text-sm text-(--muted)">Завантаження...</p>
+                  ) : words.length === 0 ? (
+                    <p className="text-sm text-(--muted)">
+                      Поки що немає слів. Додайте перше слово вручну або через імпорт.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {words.map((word) => (
+                        <div
+                          key={word.id}
+                          className="rounded-xl border border-(--card-border) bg-background p-4"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                              <p className="font-display text-xl font-medium text-foreground">
+                                {formatSourceTextWithStress(
+                                  word.sourceText,
+                                  word.displayWord,
+                                  word.stressPositions,
+                                )}
+                              </p>
+                              <div className="mt-2 flex flex-wrap gap-2 text-xs">
+                                <span className="rounded-full border border-(--card-border) px-2.5 py-0.5 text-(--muted)">
+                                  {word.progress.attemptsCount} спроб
+                                </span>
+                                <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400">
+                                  {word.progress.correctCount} ✓
+                                </span>
+                                <span className="rounded-full bg-rose-50 px-2.5 py-0.5 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400">
+                                  {word.progress.incorrectCount} ✗
+                                </span>
+                              </div>
+                              <p className="mt-2 text-xs text-(--muted)">
+                                {formatDate(word.progress.lastAnsweredAt)}
+                              </p>
                             </div>
-                            <p className="mt-3 text-xs text-slate-500 dark:text-slate-400">
-                              Остання перевірка:{" "}
-                              {formatDate(word.progress.lastAnsweredAt)}
-                            </p>
-                          </div>
 
-                          <div className="flex gap-2">
-                            <button
-                              type="button"
-                              onClick={() => handleEditWord(word)}
-                              className="rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
-                            >
-                              Редагувати
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteWord(word.id)}
-                              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-medium text-rose-700 transition hover:bg-rose-100 dark:border-rose-900/70 dark:bg-rose-950/50 dark:text-rose-300 dark:hover:bg-rose-950"
-                            >
-                              Видалити
-                            </button>
+                            <div className="flex shrink-0 gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleEditWord(word)}
+                                className={btnSecondary}
+                              >
+                                Редагувати
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteWord(word.id)}
+                                className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-medium text-rose-700 transition hover:bg-rose-100 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-400 dark:hover:bg-rose-950/60"
+                              >
+                                Видалити
+                              </button>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ) : null}
             </div>
           </section>
         )}
