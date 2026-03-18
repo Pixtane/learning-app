@@ -1,5 +1,5 @@
-import { StressTrainerApp } from "@/components/stress-trainer-app";
+import { LearningSpheresApp } from "@/components/learning-spheres-app";
 
 export default function Home() {
-  return <StressTrainerApp />;
+  return <LearningSpheresApp />;
 }

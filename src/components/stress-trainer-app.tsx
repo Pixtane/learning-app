@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import {
   formatSourceTextWithStress,
@@ -8,10 +9,16 @@ import {
   isUkrainianVowel,
   splitStressSourceText,
 } from "@/lib/stress";
-import type { SessionAttempt, StressWord } from "@/lib/types";
+import { getCookieValue, setCookieValue } from "@/lib/client-cookies";
+import type {
+  StressSessionAttempt,
+  StressWord,
+  TestSession,
+} from "@/lib/types";
+import { SunIcon, MoonIcon } from "./icons";
 
 type TestMode = "random" | "learning";
-type ActiveTab = "test" | "manage";
+type ActiveTab = "test" | "manage" | "history";
 
 type ActiveTest = {
   mode: TestMode;
@@ -19,13 +26,16 @@ type ActiveTest = {
   index: number;
   selectedVowelIndex: number | null;
   answered: boolean;
-  sessionAttempts: SessionAttempt[];
+  sessionAttempts: StressSessionAttempt[];
+  startedAt: string;
 };
 
-const STORAGE_KEY = "learning-app-user-id";
-const THEME_STORAGE_KEY = "learning-app-theme";
+const THEME_COOKIE_KEY = "learning-app-theme";
 
-async function fetchJson<T>(input: RequestInfo, init?: RequestInit): Promise<T> {
+async function fetchJson<T>(
+  input: RequestInfo,
+  init?: RequestInit,
+): Promise<T> {
   const response = await fetch(input, {
     ...init,
     headers: {
@@ -79,7 +89,9 @@ function buildLearningQueue(words: StressWord[]) {
     }
 
     const leftDate =
-      left.progress.lastAnsweredAt ?? left.createdAt ?? "9999-12-31T00:00:00.000Z";
+      left.progress.lastAnsweredAt ??
+      left.createdAt ??
+      "9999-12-31T00:00:00.000Z";
     const rightDate =
       right.progress.lastAnsweredAt ??
       right.createdAt ??
@@ -154,71 +166,29 @@ function TabButton({
   );
 }
 
-function SunIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <circle cx="12" cy="12" r="4" />
-      <line x1="12" y1="2" x2="12" y2="4" />
-      <line x1="12" y1="20" x2="12" y2="22" />
-      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
-      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
-      <line x1="2" y1="12" x2="4" y2="12" />
-      <line x1="20" y1="12" x2="22" y2="12" />
-      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
-      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
-    </svg>
-  );
-}
+const cardClass = "rounded-2xl border border-(--card-border) bg-(--card)";
 
-function MoonIcon() {
-  return (
-    <svg
-      xmlns="http://www.w3.org/2000/svg"
-      width="15"
-      height="15"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-    </svg>
-  );
-}
-
-const cardClass =
-  "rounded-2xl border border-(--card-border) bg-(--card)";
-
-export function StressTrainerApp() {
-  const [userIdInput, setUserIdInput] = useState("");
-  const [userId, setUserId] = useState("");
+export function StressTrainerApp({ userId }: { userId: string }) {
+  const router = useRouter();
   const [words, setWords] = useState<StressWord[]>([]);
+  const [sessions, setSessions] = useState<TestSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSavingWord, setIsSavingWord] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
-  const [isSubmittingAttempt, setIsSubmittingAttempt] = useState(false);
   const [wordInput, setWordInput] = useState("");
   const [bulkInput, setBulkInput] = useState("");
   const [editingWordId, setEditingWordId] = useState<number | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [activeTest, setActiveTest] = useState<ActiveTest | null>(null);
-  const [lastSession, setLastSession] = useState<SessionAttempt[]>([]);
+  const [lastSession, setLastSession] = useState<StressSessionAttempt[]>([]);
   const [activeTab, setActiveTab] = useState<ActiveTab>("test");
   const [isWordListExpanded, setIsWordListExpanded] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [pendingAttemptSaves, setPendingAttemptSaves] = useState(0);
+  const [failedAttempts, setFailedAttempts] = useState<
+    { wordId: number; chosenIndex: number; isCorrect: boolean }[]
+  >([]);
 
   const currentWord = activeTest?.queue[activeTest.index] ?? null;
   const currentWordTrailingText = currentWord
@@ -236,53 +206,50 @@ export function StressTrainerApp() {
   );
 
   useEffect(() => {
-    const storedUserId = window.localStorage.getItem(STORAGE_KEY) ?? "";
-    const storedTheme = window.localStorage.getItem(THEME_STORAGE_KEY);
+    const storedTheme = getCookieValue(THEME_COOKIE_KEY);
 
     if (storedTheme) {
       setIsDarkMode(storedTheme === "dark");
     } else {
       setIsDarkMode(window.matchMedia("(prefers-color-scheme: dark)").matches);
     }
-
-    if (storedUserId) {
-      setUserId(storedUserId);
-      setUserIdInput(storedUserId);
-    }
   }, []);
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", isDarkMode);
-    window.localStorage.setItem(THEME_STORAGE_KEY, isDarkMode ? "dark" : "light");
+    setCookieValue(THEME_COOKIE_KEY, isDarkMode ? "dark" : "light");
   }, [isDarkMode]);
 
   useEffect(() => {
-    if (!userId) {
-      return;
-    }
-
-    async function loadWords() {
+    async function loadData() {
       setIsLoading(true);
       setError(null);
 
       try {
-        const result = await fetchJson<{ words: StressWord[] }>(
-          `/api/words?userId=${encodeURIComponent(userId)}`,
-          { method: "GET" },
-        );
-        setWords(result.words);
+        const [wordsResult, sessionsResult] = await Promise.all([
+          fetchJson<{ words: StressWord[] }>(
+            `/api/words?userId=${encodeURIComponent(userId)}`,
+            { method: "GET" },
+          ),
+          fetchJson<{ sessions: TestSession[] }>(
+            `/api/sessions?userId=${encodeURIComponent(userId)}&sphere=stress`,
+            { method: "GET" },
+          ),
+        ]);
+        setWords(wordsResult.words);
+        setSessions(sessionsResult.sessions);
       } catch (loadError) {
         setError(
           loadError instanceof Error
             ? loadError.message
-            : "Не вдалося завантажити слова.",
+            : "Не вдалося завантажити дані.",
         );
       } finally {
         setIsLoading(false);
       }
     }
 
-    void loadWords();
+    void loadData();
   }, [userId]);
 
   const sessionSummary = useMemo(() => {
@@ -302,10 +269,111 @@ export function StressTrainerApp() {
     setMessage(null);
   }
 
-  function finishTest(forceAttempts?: SessionAttempt[]) {
+  async function enqueueAttemptSave(payload: {
+    wordId: number;
+    chosenIndex: number;
+    isCorrect: boolean;
+  }) {
+    setPendingAttemptSaves((count) => count + 1);
+    try {
+      const result = await fetchJson<{ word: StressWord }>(
+        "/api/test-attempts",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            userId,
+            wordId: payload.wordId,
+            chosenIndex: payload.chosenIndex,
+            isCorrect: payload.isCorrect,
+          }),
+        },
+      );
+      setWords((currentWords) => upsertWord(currentWords, result.word));
+      setActiveTest((current) =>
+        current
+          ? {
+              ...current,
+              queue: current.queue.map((item) =>
+                item.id === result.word.id ? result.word : item,
+              ),
+            }
+          : current,
+      );
+      setFailedAttempts((current) =>
+        current.filter(
+          (item) =>
+            !(
+              item.wordId === payload.wordId &&
+              item.chosenIndex === payload.chosenIndex &&
+              item.isCorrect === payload.isCorrect
+            ),
+        ),
+      );
+    } catch {
+      setFailedAttempts((current) => [...current, payload]);
+      setError(
+        "Частину відповідей не вдалося зберегти. Можна продовжувати тест і повторити синхронізацію.",
+      );
+    } finally {
+      setPendingAttemptSaves((count) => Math.max(0, count - 1));
+    }
+  }
+
+  async function retryFailedAttempts() {
+    const pending = [...failedAttempts];
+    setFailedAttempts([]);
+    for (const payload of pending) {
+      await enqueueAttemptSave(payload);
+    }
+  }
+
+  async function persistStressSession(
+    attempts: StressSessionAttempt[],
+    mode: TestMode | null,
+    startedAt: string,
+  ) {
+    try {
+      const result = await fetchJson<{ session: TestSession }>(
+        "/api/sessions",
+        {
+          method: "POST",
+          body: JSON.stringify({
+            userId,
+            sphere: "stress",
+            title: "Тренажер наголосів",
+            mode,
+            startedAt,
+            finishedAt: new Date().toISOString(),
+            attempts: attempts.map((attempt) => ({
+              itemId: attempt.wordId,
+              prompt: attempt.word,
+              answer: formatSourceTextWithStress(
+                attempt.sourceText,
+                attempt.word,
+                attempt.correctPositions,
+              ),
+              chosen: String(attempt.chosenIndex),
+              isCorrect: attempt.isCorrect,
+            })),
+          }),
+        },
+      );
+
+      setSessions((current) => [result.session, ...current]);
+    } catch {
+      setError("Сесію завершено, але не вдалося одразу зберегти в історію.");
+    }
+  }
+
+  function finishTest(forceAttempts?: StressSessionAttempt[]) {
     const attempts = forceAttempts ?? activeTest?.sessionAttempts ?? [];
+    const mode = activeTest?.mode ?? null;
+    const startedAt = activeTest?.startedAt ?? new Date().toISOString();
     setLastSession(attempts);
     setActiveTest(null);
+    if (attempts.length > 0) {
+      void persistStressSession(attempts, mode, startedAt);
+    }
   }
 
   function startTest(mode: TestMode) {
@@ -314,7 +382,8 @@ export function StressTrainerApp() {
       return;
     }
 
-    const queue = mode === "random" ? shuffleWords(words) : buildLearningQueue(words);
+    const queue =
+      mode === "random" ? shuffleWords(words) : buildLearningQueue(words);
 
     setLastSession([]);
     setActiveTest({
@@ -324,52 +393,21 @@ export function StressTrainerApp() {
       selectedVowelIndex: null,
       answered: false,
       sessionAttempts: [],
+      startedAt: new Date().toISOString(),
     });
-    setMessage(null);
-    setError(null);
-  }
-
-  async function handleSaveUserId(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    const nextUserId = userIdInput.trim();
-
-    if (!nextUserId) {
-      setError("Введіть свій ідентифікатор.");
-      return;
-    }
-
-    window.localStorage.setItem(STORAGE_KEY, nextUserId);
-    setUserId(nextUserId);
-    setActiveTest(null);
-    setLastSession([]);
-    resetFlashMessages();
-  }
-
-  function handleChangeUser() {
-    window.localStorage.removeItem(STORAGE_KEY);
-    setUserId("");
-    setWords([]);
-    setWordInput("");
-    setBulkInput("");
-    setEditingWordId(null);
-    setActiveTest(null);
-    setLastSession([]);
     setMessage(null);
     setError(null);
   }
 
   async function handleWordSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!userId) {
-      return;
-    }
-
     setIsSavingWord(true);
     resetFlashMessages();
 
     try {
-      const endpoint = editingWordId ? `/api/words/${editingWordId}` : "/api/words";
+      const endpoint = editingWordId
+        ? `/api/words/${editingWordId}`
+        : "/api/words";
       const method = editingWordId ? "PATCH" : "POST";
 
       const result = await fetchJson<{ word: StressWord }>(endpoint, {
@@ -381,9 +419,7 @@ export function StressTrainerApp() {
       setWordInput("");
       setEditingWordId(null);
       setMessage(
-        editingWordId
-          ? "Слово успішно оновлено."
-          : "Слово успішно додано.",
+        editingWordId ? "Слово успішно оновлено." : "Слово успішно додано.",
       );
     } catch (submitError) {
       setError(
@@ -397,10 +433,6 @@ export function StressTrainerApp() {
   }
 
   async function handleImportWords() {
-    if (!userId) {
-      return;
-    }
-
     setIsImporting(true);
     resetFlashMessages();
 
@@ -439,10 +471,6 @@ export function StressTrainerApp() {
   }
 
   async function handleDeleteWord(wordId: number) {
-    if (!userId) {
-      return;
-    }
-
     resetFlashMessages();
 
     try {
@@ -453,7 +481,9 @@ export function StressTrainerApp() {
         },
       );
 
-      setWords((currentWords) => currentWords.filter((word) => word.id !== wordId));
+      setWords((currentWords) =>
+        currentWords.filter((word) => word.id !== wordId),
+      );
 
       if (editingWordId === wordId) {
         setEditingWordId(null);
@@ -483,13 +513,14 @@ export function StressTrainerApp() {
     setError(null);
   }
 
-  async function handleAnswer(word: StressWord, chosenIndex: number) {
-    if (!userId || !activeTest || activeTest.answered || isSubmittingAttempt) {
+  function handleAnswer(word: StressWord, chosenIndex: number) {
+    if (!activeTest || activeTest.answered) {
       return;
     }
 
     const isCorrect = isCorrectStressPick(word.stressPositions, chosenIndex);
-    const nextAttempt: SessionAttempt = {
+    const now = new Date().toISOString();
+    const nextAttempt: StressSessionAttempt = {
       wordId: word.id,
       word: word.displayWord,
       sourceText: word.sourceText,
@@ -498,43 +529,37 @@ export function StressTrainerApp() {
       isCorrect,
     };
 
-    setIsSubmittingAttempt(true);
-    resetFlashMessages();
+    const optimisticWord: StressWord = {
+      ...word,
+      progress: {
+        attemptsCount: word.progress.attemptsCount + 1,
+        correctCount: word.progress.correctCount + (isCorrect ? 1 : 0),
+        incorrectCount: word.progress.incorrectCount + (isCorrect ? 0 : 1),
+        lastResult: isCorrect,
+        lastAnsweredAt: now,
+      },
+    };
 
-    try {
-      const result = await fetchJson<{ word: StressWord }>("/api/test-attempts", {
-        method: "POST",
-        body: JSON.stringify({
-          userId,
-          wordId: word.id,
-          chosenIndex,
-          isCorrect,
-        }),
-      });
+    setWords((currentWords) => upsertWord(currentWords, optimisticWord));
+    setActiveTest((currentTest) =>
+      currentTest
+        ? {
+            ...currentTest,
+            selectedVowelIndex: chosenIndex,
+            answered: true,
+            sessionAttempts: [...currentTest.sessionAttempts, nextAttempt],
+            queue: currentTest.queue.map((item) =>
+              item.id === optimisticWord.id ? optimisticWord : item,
+            ),
+          }
+        : currentTest,
+    );
 
-      setWords((currentWords) => upsertWord(currentWords, result.word));
-      setActiveTest((currentTest) =>
-        currentTest
-          ? {
-              ...currentTest,
-              selectedVowelIndex: chosenIndex,
-              answered: true,
-              sessionAttempts: [...currentTest.sessionAttempts, nextAttempt],
-              queue: currentTest.queue.map((item) =>
-                item.id === result.word.id ? result.word : item,
-              ),
-            }
-          : currentTest,
-      );
-    } catch (attemptError) {
-      setError(
-        attemptError instanceof Error
-          ? attemptError.message
-          : "Не вдалося зберегти результат відповіді.",
-      );
-    } finally {
-      setIsSubmittingAttempt(false);
-    }
+    void enqueueAttemptSave({
+      wordId: word.id,
+      chosenIndex,
+      isCorrect,
+    });
   }
 
   function handleAdvance() {
@@ -566,59 +591,18 @@ export function StressTrainerApp() {
   const btnSecondary =
     "rounded-xl border border-(--card-border) bg-(--card) px-4 py-2.5 text-sm font-medium text-foreground transition hover:border-[var(--foreground)]";
 
-  if (!userId) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background px-4">
-        <div className={`${cardClass} w-full max-w-sm p-8`}>
-          <div className="flex items-start justify-between gap-4">
-            <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground">
-              Наголоси
-            </h1>
-            <button
-              type="button"
-              onClick={() => setIsDarkMode((v) => !v)}
-              className={`${btnSecondary} px-2.5 py-2.5`}
-              aria-label={isDarkMode ? "Світла тема" : "Темна тема"}
-            >
-              {isDarkMode ? <SunIcon /> : <MoonIcon />}
-            </button>
-          </div>
-
-          <form className="mt-8 space-y-3" onSubmit={handleSaveUserId}>
-            <label className="block">
-              <span className="mb-2 block text-xs uppercase tracking-widest text-(--muted)">
-                Ваш ID
-              </span>
-              <input
-                value={userIdInput}
-                onChange={(event) => setUserIdInput(event.target.value)}
-                className={inputClass}
-                placeholder="наприклад: yaroslav"
-              />
-            </label>
-
-            {error ? (
-              <p className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/40 dark:text-rose-300">
-                {error}
-              </p>
-            ) : null}
-
-            <button type="submit" className={`${btnPrimary} w-full`}>
-              Увійти
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-background pb-20">
       <div className="mx-auto flex max-w-2xl flex-col gap-5 px-4 py-8 sm:px-6">
-
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="font-display text-4xl font-semibold tracking-tight text-foreground sm:text-5xl">
+            <button
+              type="button"
+              onClick={() => router.push("/")}
+              className="text-sm"
+            >
+              &larr;
+            </button>
             Наголоси
           </h1>
 
@@ -634,20 +618,15 @@ export function StressTrainerApp() {
             >
               {isDarkMode ? <SunIcon /> : <MoonIcon />}
             </button>
-            <button type="button" onClick={handleChangeUser} className={btnSecondary}>
-              Змінити ID
-            </button>
           </div>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-3 gap-3">
           <StatsBadge label="Слова" value={words.length} />
           <StatsBadge label="Нові" value={totalNeverTested} />
           <StatsBadge label="Відповіді" value={totalAttempts} />
         </div>
 
-        {/* Flash messages */}
         {message ? (
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-900/50 dark:bg-emerald-950/40 dark:text-emerald-300">
             {message}
@@ -660,19 +639,49 @@ export function StressTrainerApp() {
           </div>
         ) : null}
 
-        {/* Tabs */}
+        {pendingAttemptSaves > 0 || failedAttempts.length > 0 ? (
+          <div className="fixed right-4 bottom-4 z-50 w-[min(26rem,calc(100%-2rem))] rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800 shadow-lg dark:border-amber-900/50 dark:bg-amber-950/90 dark:text-amber-300">
+            <div className="flex items-center justify-between gap-3">
+              <p>
+                Синхронізація відповідей: {pendingAttemptSaves} в роботі,{" "}
+                {failedAttempts.length} помилок.
+              </p>
+              {failedAttempts.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={retryFailedAttempts}
+                  className={btnSecondary}
+                >
+                  Повторити
+                </button>
+              ) : null}
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex gap-1 border-b border-(--card-border)">
-          <TabButton isActive={activeTab === "test"} onClick={() => setActiveTab("test")}>
+          <TabButton
+            isActive={activeTab === "test"}
+            onClick={() => setActiveTab("test")}
+          >
             Тестування
           </TabButton>
-          <TabButton isActive={activeTab === "manage"} onClick={() => setActiveTab("manage")}>
+          <TabButton
+            isActive={activeTab === "manage"}
+            onClick={() => setActiveTab("manage")}
+          >
             Керування словами
+          </TabButton>
+          <TabButton
+            isActive={activeTab === "history"}
+            onClick={() => setActiveTab("history")}
+          >
+            Історія
           </TabButton>
         </div>
 
         {activeTab === "test" ? (
           <section className="space-y-5">
-            {/* Start buttons */}
             <div className="flex gap-3">
               <button
                 type="button"
@@ -690,7 +699,6 @@ export function StressTrainerApp() {
               </button>
             </div>
 
-            {/* Active test card */}
             {activeTest && currentWord ? (
               <div
                 className={`${cardClass} p-6 transition ${
@@ -699,15 +707,6 @@ export function StressTrainerApp() {
                 onClick={handleAdvance}
                 role={activeTest.answered ? "button" : undefined}
                 tabIndex={activeTest.answered ? 0 : -1}
-                onKeyDown={(event) => {
-                  if (
-                    activeTest.answered &&
-                    (event.key === "Enter" || event.key === " ")
-                  ) {
-                    event.preventDefault();
-                    handleAdvance();
-                  }
-                }}
               >
                 <div className="flex items-center justify-between">
                   <p className="text-xs uppercase tracking-widest text-(--muted)">
@@ -727,13 +726,14 @@ export function StressTrainerApp() {
                   </button>
                 </div>
 
-                {/* Word display */}
                 <div className="mt-10 flex justify-center">
                   <div className="flex flex-wrap items-baseline justify-center gap-1 text-4xl font-semibold sm:text-5xl">
                     {[...currentWord.displayWord].map((character, index) => {
                       const isVowel = isUkrainianVowel(character);
-                      const isCorrect = currentWord.stressPositions.includes(index);
-                      const isSelected = activeTest.selectedVowelIndex === index;
+                      const isCorrect =
+                        currentWord.stressPositions.includes(index);
+                      const isSelected =
+                        activeTest.selectedVowelIndex === index;
 
                       let className =
                         "rounded-lg px-1.5 py-1 transition font-display tracking-tight";
@@ -744,9 +744,11 @@ export function StressTrainerApp() {
                         className +=
                           " cursor-pointer border border-(--card-border) text-foreground hover:border-[var(--foreground)] hover:bg-background";
                       } else if (isCorrect) {
-                        className += " bg-emerald-500 text-white border border-emerald-500";
+                        className +=
+                          " bg-emerald-500 text-white border border-emerald-500";
                       } else if (isSelected) {
-                        className += " bg-rose-500 text-white border border-rose-500";
+                        className +=
+                          " bg-rose-500 text-white border border-rose-500";
                       } else {
                         className +=
                           " border border-(--card-border) text-(--muted)";
@@ -756,12 +758,12 @@ export function StressTrainerApp() {
                         <button
                           key={`${character}-${index}`}
                           type="button"
-                          disabled={!isVowel || activeTest.answered || isSubmittingAttempt}
+                          disabled={!isVowel || activeTest.answered}
                           className={className}
                           onClick={(event) => {
                             event.stopPropagation();
                             if (!isVowel) return;
-                            void handleAnswer(currentWord, index);
+                            handleAnswer(currentWord, index);
                           }}
                         >
                           {character}
@@ -777,19 +779,22 @@ export function StressTrainerApp() {
                   </div>
                 </div>
 
-                {/* Feedback */}
                 {activeTest.answered ? (
                   <div className="mt-8 border-t border-(--card-border) pt-5">
                     <p
                       className={`text-sm font-medium ${
                         activeTest.selectedVowelIndex !== null &&
-                        currentWord.stressPositions.includes(activeTest.selectedVowelIndex)
+                        currentWord.stressPositions.includes(
+                          activeTest.selectedVowelIndex,
+                        )
                           ? "text-emerald-600 dark:text-emerald-400"
                           : "text-rose-600 dark:text-rose-400"
                       }`}
                     >
                       {activeTest.selectedVowelIndex !== null &&
-                      currentWord.stressPositions.includes(activeTest.selectedVowelIndex)
+                      currentWord.stressPositions.includes(
+                        activeTest.selectedVowelIndex,
+                      )
                         ? "Правильно!"
                         : `Неправильно. Правильний варіант: ${formatSourceTextWithStress(
                             currentWord.sourceText,
@@ -798,15 +803,10 @@ export function StressTrainerApp() {
                           )}`}
                     </p>
                   </div>
-                ) : isSubmittingAttempt ? (
-                  <p className="mt-8 text-xs text-(--muted)">
-                    Зберігаємо...
-                  </p>
                 ) : null}
               </div>
             ) : null}
 
-            {/* Session results */}
             {!activeTest && sessionSummary.total > 0 ? (
               <div className={`${cardClass} p-6`}>
                 <h2 className="font-display text-2xl font-semibold text-foreground">
@@ -814,41 +814,22 @@ export function StressTrainerApp() {
                 </h2>
                 <div className="mt-4 grid grid-cols-3 gap-3">
                   <StatsBadge label="Усього" value={sessionSummary.total} />
-                  <StatsBadge label="Правильно" value={sessionSummary.correct} />
-                  <StatsBadge label="Помилок" value={sessionSummary.incorrect} />
-                </div>
-
-                <div className="mt-5 space-y-2">
-                  {sessionSummary.attempts.map((attempt, index) => (
-                    <div
-                      key={`${attempt.wordId}-${index}`}
-                      className="flex items-center justify-between gap-4 rounded-xl border border-(--card-border) bg-background px-4 py-2.5"
-                    >
-                      <p className="font-display text-lg font-medium text-foreground">
-                        {formatSourceTextWithStress(
-                          attempt.sourceText,
-                          attempt.word,
-                          attempt.correctPositions,
-                        )}
-                      </p>
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                          attempt.isCorrect
-                            ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
-                            : "bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400"
-                        }`}
-                      >
-                        {attempt.isCorrect ? "Правильно" : "Помилка"}
-                      </span>
-                    </div>
-                  ))}
+                  <StatsBadge
+                    label="Правильно"
+                    value={sessionSummary.correct}
+                  />
+                  <StatsBadge
+                    label="Помилок"
+                    value={sessionSummary.incorrect}
+                  />
                 </div>
               </div>
             ) : null}
           </section>
-        ) : (
+        ) : null}
+
+        {activeTab === "manage" ? (
           <section className="space-y-5">
-            {/* Word form */}
             <div className={`${cardClass} p-6`}>
               <p className="text-xs text-(--muted)">
                 Приклад:{" "}
@@ -873,7 +854,11 @@ export function StressTrainerApp() {
                 </label>
 
                 <div className="flex gap-3">
-                  <button type="submit" disabled={isSavingWord} className={btnPrimary}>
+                  <button
+                    type="submit"
+                    disabled={isSavingWord}
+                    className={btnPrimary}
+                  >
                     {isSavingWord
                       ? "Зберігаємо..."
                       : editingWordId
@@ -908,11 +893,6 @@ export function StressTrainerApp() {
                     placeholder={"вИпадок\nзАвжди\nводопровІд\nперепИс"}
                   />
                 </label>
-                <p className="mt-2 text-xs leading-5 text-(--muted)">
-                  По одному слову в рядок або через кому. Якщо слово має два
-                  наголоси, позначте обидві голосні великими літерами. Усе після
-                  першого слова можна використовувати як примітку.
-                </p>
                 <button
                   type="button"
                   onClick={handleImportWords}
@@ -924,7 +904,6 @@ export function StressTrainerApp() {
               </div>
             </div>
 
-            {/* Word list */}
             <div className={`${cardClass} p-6`}>
               <div className="flex items-center justify-between gap-4">
                 <h2 className="font-display text-2xl font-semibold text-foreground">
@@ -935,7 +914,9 @@ export function StressTrainerApp() {
                   onClick={() => setIsWordListExpanded((v) => !v)}
                   className={btnSecondary}
                 >
-                  {isWordListExpanded ? "Сховати" : `Показати (${words.length})`}
+                  {isWordListExpanded
+                    ? "Сховати"
+                    : `Показати (${words.length})`}
                 </button>
               </div>
 
@@ -945,7 +926,8 @@ export function StressTrainerApp() {
                     <p className="text-sm text-(--muted)">Завантаження...</p>
                   ) : words.length === 0 ? (
                     <p className="text-sm text-(--muted)">
-                      Поки що немає слів. Додайте перше слово вручну або через імпорт.
+                      Поки що немає слів. Додайте перше слово вручну або через
+                      імпорт.
                     </p>
                   ) : (
                     <div className="space-y-2">
@@ -1004,7 +986,45 @@ export function StressTrainerApp() {
               ) : null}
             </div>
           </section>
-        )}
+        ) : null}
+
+        {activeTab === "history" ? (
+          <section className={`${cardClass} p-6`}>
+            <h2 className="font-display text-2xl font-semibold text-foreground">
+              Історія тестів
+            </h2>
+            <div className="mt-4 space-y-3">
+              {sessions.length === 0 ? (
+                <p className="text-sm text-(--muted)">
+                  Поки що немає завершених сесій.
+                </p>
+              ) : (
+                sessions.map((session) => (
+                  <div
+                    key={session.id}
+                    className="rounded-xl border border-(--card-border) bg-background p-4"
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <p className="font-medium text-foreground">
+                          {session.title}
+                        </p>
+                        <p className="text-xs text-(--muted)">
+                          {formatDate(session.finishedAt)}
+                        </p>
+                      </div>
+                      <div className="text-right text-xs text-(--muted)">
+                        <p>Усього: {session.total}</p>
+                        <p>Правильно: {session.correct}</p>
+                        <p>Помилок: {session.incorrect}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Podkova, Roboto_Slab } from "next/font/google";
+import { Roboto_Slab } from "next/font/google";
 import "./globals.css";
 
 const monomakh = Roboto_Slab({
