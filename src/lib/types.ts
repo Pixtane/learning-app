@@ -69,10 +69,54 @@ export type CardReviewAttempt = {
   isCorrect: boolean;
 };
 
+export type HistoryDate = {
+  id: number;
+  ordinal: number;
+  dateText: string;
+  eventText: string;
+  isStrong: boolean;
+  progress: ProgressSummary;
+};
+
+export type DateAttemptPayload = {
+  dateId: number;
+  isCorrect: boolean;
+  associationIds?: number[];
+};
+
+export type DateStatsSummary = {
+  totalDates: number;
+  studiedCount: number;
+  overallAccuracy: number;
+  strongAccuracy: number;
+  nonStrongAccuracy: number;
+  strongStudied: number;
+  nonStrongStudied: number;
+};
+
+export type DateDailyTrend = {
+  date: string;
+  attempts: number;
+  correct: number;
+};
+
+export type DatePerDateStat = {
+  id: number;
+  ordinal: number;
+  dateText: string;
+  eventText: string;
+  isStrong: boolean;
+  attemptsCount: number;
+  correctCount: number;
+  accuracy: number;
+  lastAnsweredAt: string | null;
+  lastResult: boolean | null;
+};
+
 export type TestSession = {
   id: number;
   userId: string;
-  sphere: "stress" | "cards";
+  sphere: "stress" | "cards" | "dates";
   title: string;
   mode: string | null;
   total: number;

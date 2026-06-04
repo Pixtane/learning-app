@@ -80,15 +80,18 @@ export function LearningSpheresApp() {
           </button>
         </div>
         <p className="mt-2 text-sm text-(--muted)">
-          Оберіть тренажер: наголоси або картки.
+          Оберіть тренажер: наголоси, картки або дати.
         </p>
 
-        <div className="mt-8 grid gap-4 sm:grid-cols-2">
+        <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link href="/stress" className={`${btnPrimary} w-full py-6 text-center text-base`}>
             Сфера Наголосів
           </Link>
           <Link href="/cards" className={`${btnSecondary} w-full py-6 text-center text-base`}>
             Сфера Карток
+          </Link>
+          <Link href="/dates" className={`${btnSecondary} w-full py-6 text-center text-base`}>
+            Сфера Дат
           </Link>
         </div>
       </div>

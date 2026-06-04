@@ -36,7 +36,11 @@ export async function GET(request: NextRequest) {
   const userId = request.nextUrl.searchParams.get("userId")?.trim() ?? "";
   const sphereParam = request.nextUrl.searchParams.get("sphere");
   const sphere =
-    sphereParam === "stress" || sphereParam === "cards" ? sphereParam : undefined;
+    sphereParam === "stress" ||
+    sphereParam === "cards" ||
+    sphereParam === "dates"
+      ? sphereParam
+      : undefined;
 
   if (!userId) {
     return Response.json(
@@ -63,7 +67,7 @@ export async function POST(request: Request) {
   try {
     const body = (await request.json()) as {
       userId?: string;
-      sphere?: "stress" | "cards";
+      sphere?: "stress" | "cards" | "dates";
       title?: string;
       mode?: string | null;
       startedAt?: string;
@@ -82,7 +86,7 @@ export async function POST(request: Request) {
       );
     }
 
-    if (sphere !== "stress" && sphere !== "cards") {
+    if (sphere !== "stress" && sphere !== "cards" && sphere !== "dates") {
       return Response.json({ error: "Некоректна сфера тестування." }, { status: 400 });
     }
 

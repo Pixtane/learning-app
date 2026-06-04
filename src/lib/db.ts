@@ -1,6 +1,10 @@
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+
 import { neon } from "@neondatabase/serverless";
 
 import { calculateNextCardSchedule, parseCardDump } from "@/lib/cards";
+import { parseDatesDump } from "@/lib/dates";
 import {
   deserializeStressPositions,
   parseStressWord,
@@ -11,6 +15,10 @@ import type {
   Card,
   CardDeck,
   CardRating,
+  DateDailyTrend,
+  DatePerDateStat,
+  DateStatsSummary,
+  HistoryDate,
   ProgressSummary,
   SessionAttempt,
   StressWord,
@@ -69,10 +77,23 @@ type CardRow = {
   last_answered_at: string | null;
 };
 
+type HistoryDateRow = {
+  id: number;
+  ordinal: number;
+  date_text: string;
+  event_text: string;
+  is_strong: boolean;
+  attempts_count: number | null;
+  correct_count: number | null;
+  incorrect_count: number | null;
+  last_result: boolean | null;
+  last_answered_at: string | null;
+};
+
 type SessionRow = {
   id: number;
   user_id: string;
-  sphere: "stress" | "cards";
+  sphere: "stress" | "cards" | "dates";
   title: string;
   mode: string | null;
   total: number;
@@ -247,6 +268,83 @@ async function ensureSchema() {
         CREATE INDEX IF NOT EXISTS test_sessions_user_sphere_finished_idx
         ON test_sessions (user_id, sphere, finished_at DESC)
       `;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS history_dates (
+          id SERIAL PRIMARY KEY,
+          ordinal INTEGER NOT NULL UNIQUE,
+          date_text TEXT NOT NULL,
+          event_text TEXT NOT NULL,
+          is_strong BOOLEAN NOT NULL DEFAULT false
+        )
+      `;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS date_progress (
+          date_id INTEGER NOT NULL REFERENCES history_dates(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL,
+          attempts_count INTEGER NOT NULL DEFAULT 0,
+          correct_count INTEGER NOT NULL DEFAULT 0,
+          incorrect_count INTEGER NOT NULL DEFAULT 0,
+          last_result BOOLEAN,
+          last_answered_at TIMESTAMPTZ,
+          updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          PRIMARY KEY (date_id, user_id)
+        )
+      `;
+
+      await sql`
+        CREATE INDEX IF NOT EXISTS date_progress_user_id_idx
+        ON date_progress (user_id, last_answered_at)
+      `;
+
+      await sql`
+        CREATE TABLE IF NOT EXISTS date_attempts (
+          id BIGSERIAL PRIMARY KEY,
+          date_id INTEGER NOT NULL REFERENCES history_dates(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL,
+          is_correct BOOLEAN NOT NULL,
+          answered_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+          association_ids INTEGER[]
+        )
+      `;
+
+      await sql`
+        CREATE INDEX IF NOT EXISTS date_attempts_user_answered_at_idx
+        ON date_attempts (user_id, answered_at DESC)
+      `;
+
+      const countRows = (await sql`
+        SELECT COUNT(*)::integer AS count FROM history_dates
+      `) as { count: number }[];
+
+      if ((countRows[0]?.count ?? 0) === 0) {
+        const dumpPath = path.join(
+          process.cwd(),
+          "data",
+          "history-dates.md",
+        );
+        const dumpText = await readFile(dumpPath, "utf8");
+        const parsed = parseDatesDump(dumpText);
+        const batchSize = 50;
+
+        for (let offset = 0; offset < parsed.length; offset += batchSize) {
+          const batch = parsed.slice(offset, offset + batchSize);
+          await Promise.all(
+            batch.map((entry) =>
+              sql`
+                INSERT INTO history_dates (ordinal, date_text, event_text, is_strong)
+                VALUES (
+                  ${entry.ordinal},
+                  ${entry.dateText},
+                  ${entry.eventText},
+                  ${entry.isStrong}
+                )
+              `,
+            ),
+          );
+        }
+      }
     })();
   }
 
@@ -1015,7 +1113,7 @@ export async function saveTestSessionForUser({
   attempts,
 }: {
   userId: string;
-  sphere: "stress" | "cards";
+  sphere: "stress" | "cards" | "dates";
   title: string;
   mode: string | null;
   startedAt?: string;
@@ -1069,7 +1167,7 @@ export async function saveTestSessionForUser({
 
 export async function listTestSessionsForUser(
   userId: string,
-  sphere?: "stress" | "cards",
+  sphere?: "stress" | "cards" | "dates",
 ): Promise<TestSession[]> {
   await ensureSchema();
   const sql = getSql();
@@ -1112,4 +1210,312 @@ export async function listTestSessionsForUser(
       `) as SessionRow[]);
 
   return rows.map(mapSession);
+}
+
+function mapHistoryDate(row: HistoryDateRow): HistoryDate {
+  return {
+    id: row.id,
+    ordinal: row.ordinal,
+    dateText: row.date_text,
+    eventText: row.event_text,
+    isStrong: row.is_strong,
+    progress: mapProgress(row),
+  };
+}
+
+async function getHistoryDateById(
+  id: number,
+  userId: string,
+): Promise<HistoryDate | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT
+      dates.id,
+      dates.ordinal,
+      dates.date_text,
+      dates.event_text,
+      dates.is_strong,
+      progress.attempts_count,
+      progress.correct_count,
+      progress.incorrect_count,
+      progress.last_result,
+      progress.last_answered_at::text AS last_answered_at
+    FROM history_dates AS dates
+    LEFT JOIN date_progress AS progress
+      ON progress.date_id = dates.id
+      AND progress.user_id = ${userId}
+    WHERE dates.id = ${id}
+    LIMIT 1
+  `) as HistoryDateRow[];
+
+  if (rows.length === 0) {
+    return null;
+  }
+
+  return mapHistoryDate(rows[0]);
+}
+
+export async function listDatesForUser(userId: string): Promise<HistoryDate[]> {
+  await ensureSchema();
+  const sql = getSql();
+
+  const rows = (await sql`
+    SELECT
+      dates.id,
+      dates.ordinal,
+      dates.date_text,
+      dates.event_text,
+      dates.is_strong,
+      progress.attempts_count,
+      progress.correct_count,
+      progress.incorrect_count,
+      progress.last_result,
+      progress.last_answered_at::text AS last_answered_at
+    FROM history_dates AS dates
+    LEFT JOIN date_progress AS progress
+      ON progress.date_id = dates.id
+      AND progress.user_id = ${userId}
+    ORDER BY dates.ordinal ASC
+  `) as HistoryDateRow[];
+
+  return rows.map(mapHistoryDate);
+}
+
+export async function recordDateAttemptForUser({
+  userId,
+  dateId,
+  isCorrect,
+  associationIds,
+}: {
+  userId: string;
+  dateId: number;
+  isCorrect?: boolean;
+  associationIds?: number[];
+}) {
+  await ensureSchema();
+  const sql = getSql();
+  const existing = await getHistoryDateById(dateId, userId);
+
+  if (!existing) {
+    throw new Error("Дату не знайдено.");
+  }
+
+  if (associationIds !== undefined && isCorrect === undefined) {
+    if (associationIds.length !== 3) {
+      throw new Error("Потрібно вказати рівно три дати для асоціації.");
+    }
+
+    const updated = (await sql`
+      UPDATE date_attempts
+      SET association_ids = ${associationIds}
+      WHERE id = (
+        SELECT id
+        FROM date_attempts
+        WHERE user_id = ${userId}
+          AND date_id = ${dateId}
+        ORDER BY answered_at DESC
+        LIMIT 1
+      )
+      RETURNING id
+    `) as { id: number }[];
+
+    if (updated.length === 0) {
+      throw new Error("Спробу для оновлення асоціацій не знайдено.");
+    }
+
+    const refreshed = await getHistoryDateById(dateId, userId);
+    if (!refreshed) {
+      throw new Error("Не вдалося оновити дату.");
+    }
+
+    return refreshed;
+  }
+
+  await sql`
+    INSERT INTO date_attempts (date_id, user_id, is_correct)
+    VALUES (${dateId}, ${userId}, ${isCorrect})
+  `;
+
+  await sql`
+    INSERT INTO date_progress (
+      date_id,
+      user_id,
+      attempts_count,
+      correct_count,
+      incorrect_count,
+      last_result,
+      last_answered_at,
+      updated_at
+    )
+    VALUES (
+      ${dateId},
+      ${userId},
+      1,
+      ${isCorrect ? 1 : 0},
+      ${isCorrect ? 0 : 1},
+      ${isCorrect},
+      NOW(),
+      NOW()
+    )
+    ON CONFLICT (date_id, user_id)
+    DO UPDATE SET
+      attempts_count = date_progress.attempts_count + 1,
+      correct_count = date_progress.correct_count + ${isCorrect ? 1 : 0},
+      incorrect_count = date_progress.incorrect_count + ${isCorrect ? 0 : 1},
+      last_result = ${isCorrect},
+      last_answered_at = NOW(),
+      updated_at = NOW()
+  `;
+
+  const refreshed = await getHistoryDateById(dateId, userId);
+  if (!refreshed) {
+    throw new Error("Не вдалося оновити прогрес дати.");
+  }
+
+  return refreshed;
+}
+
+function accuracyPercent(correct: number, total: number) {
+  if (total === 0) {
+    return 0;
+  }
+
+  return Math.round((correct / total) * 100);
+}
+
+export async function getDateStatsForUser(userId: string): Promise<{
+  summary: DateStatsSummary;
+  dailyTrend: DateDailyTrend[];
+  perDate: DatePerDateStat[];
+}> {
+  await ensureSchema();
+  const sql = getSql();
+
+  const summaryRows = (await sql`
+    SELECT
+      COUNT(*)::integer AS total_dates,
+      COUNT(*) FILTER (WHERE progress.attempts_count > 0)::integer AS studied_count,
+      COALESCE(SUM(progress.correct_count), 0)::integer AS total_correct,
+      COALESCE(SUM(progress.attempts_count), 0)::integer AS total_attempts,
+      COALESCE(
+        SUM(progress.correct_count) FILTER (WHERE dates.is_strong),
+        0
+      )::integer AS strong_correct,
+      COALESCE(
+        SUM(progress.attempts_count) FILTER (WHERE dates.is_strong),
+        0
+      )::integer AS strong_attempts,
+      COUNT(*) FILTER (
+        WHERE dates.is_strong AND progress.attempts_count > 0
+      )::integer AS strong_studied,
+      COALESCE(
+        SUM(progress.correct_count) FILTER (WHERE NOT dates.is_strong),
+        0
+      )::integer AS non_strong_correct,
+      COALESCE(
+        SUM(progress.attempts_count) FILTER (WHERE NOT dates.is_strong),
+        0
+      )::integer AS non_strong_attempts,
+      COUNT(*) FILTER (
+        WHERE NOT dates.is_strong AND progress.attempts_count > 0
+      )::integer AS non_strong_studied
+    FROM history_dates AS dates
+    LEFT JOIN date_progress AS progress
+      ON progress.date_id = dates.id
+      AND progress.user_id = ${userId}
+  `) as {
+    total_dates: number;
+    studied_count: number;
+    total_correct: number;
+    total_attempts: number;
+    strong_correct: number;
+    strong_attempts: number;
+    strong_studied: number;
+    non_strong_correct: number;
+    non_strong_attempts: number;
+    non_strong_studied: number;
+  }[];
+
+  const summaryRow = summaryRows[0];
+  const summary: DateStatsSummary = {
+    totalDates: summaryRow?.total_dates ?? 0,
+    studiedCount: summaryRow?.studied_count ?? 0,
+    overallAccuracy: accuracyPercent(
+      summaryRow?.total_correct ?? 0,
+      summaryRow?.total_attempts ?? 0,
+    ),
+    strongAccuracy: accuracyPercent(
+      summaryRow?.strong_correct ?? 0,
+      summaryRow?.strong_attempts ?? 0,
+    ),
+    nonStrongAccuracy: accuracyPercent(
+      summaryRow?.non_strong_correct ?? 0,
+      summaryRow?.non_strong_attempts ?? 0,
+    ),
+    strongStudied: summaryRow?.strong_studied ?? 0,
+    nonStrongStudied: summaryRow?.non_strong_studied ?? 0,
+  };
+
+  const trendRows = (await sql`
+    SELECT
+      DATE(answered_at)::text AS day,
+      COUNT(*)::integer AS attempts,
+      COUNT(*) FILTER (WHERE is_correct)::integer AS correct
+    FROM date_attempts
+    WHERE user_id = ${userId}
+    GROUP BY DATE(answered_at)
+    ORDER BY DATE(answered_at) DESC
+    LIMIT 30
+  `) as { day: string; attempts: number; correct: number }[];
+
+  const dailyTrend: DateDailyTrend[] = trendRows
+    .map((row) => ({
+      date: row.day,
+      attempts: row.attempts,
+      correct: row.correct,
+    }))
+    .reverse();
+
+  const perDateRows = (await sql`
+    SELECT
+      dates.id,
+      dates.ordinal,
+      dates.date_text,
+      dates.event_text,
+      dates.is_strong,
+      COALESCE(progress.attempts_count, 0)::integer AS attempts_count,
+      COALESCE(progress.correct_count, 0)::integer AS correct_count,
+      progress.last_answered_at::text AS last_answered_at,
+      progress.last_result
+    FROM history_dates AS dates
+    LEFT JOIN date_progress AS progress
+      ON progress.date_id = dates.id
+      AND progress.user_id = ${userId}
+    ORDER BY dates.ordinal ASC
+  `) as {
+    id: number;
+    ordinal: number;
+    date_text: string;
+    event_text: string;
+    is_strong: boolean;
+    attempts_count: number;
+    correct_count: number;
+    last_answered_at: string | null;
+    last_result: boolean | null;
+  }[];
+
+  const perDate: DatePerDateStat[] = perDateRows.map((row) => ({
+    id: row.id,
+    ordinal: row.ordinal,
+    dateText: row.date_text,
+    eventText: row.event_text,
+    isStrong: row.is_strong,
+    attemptsCount: row.attempts_count,
+    correctCount: row.correct_count,
+    accuracy: accuracyPercent(row.correct_count, row.attempts_count),
+    lastAnsweredAt: row.last_answered_at,
+    lastResult: row.last_result,
+  }));
+
+  return { summary, dailyTrend, perDate };
 }
